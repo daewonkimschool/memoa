@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>공유 가능한 웹 메모장</title>
+    <style>
+        :root {
+            --bg-color: #f5f7fb;
+            --card-color: #ffffff;
+            --text-color: #333333;
+            --primary-color: #4a90e2;
+            --share-color: #2ecc71;
+            --danger-color: #e74c3c;
+            --border-color: #e0e0e0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+            background: var(--card-color);
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            margin-top: 0;
+            font-size: 24px;
+            color: var(--primary-color);
+            text-align: center;
+        }
+
+        .info-box {
+            background-color: #e8f4fd;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 13px;
+            color: #31708f;
+            margin-bottom: 15px;
+            line-height: 1.4;
+        }
+
+        textarea {
+            width: 100%;
+            height: 300px;
+            padding: 15px;
+            box-sizing: border-box;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            resize: none;
+            font-size: 16px;
+            line-height: 1.6;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        textarea:focus {
+            border-color: var(--primary-color);
+        }
+
+        .button-group {
+            margin-top: 15px;
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        button {
+            flex: 1;
+            padding: 12px;
+            font-size: 15px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: opacity 0.2s;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        .btn-share {
+            background-color: var(--share-color);
+            color: white;
+        }
+
+        .btn-clear {
+            background-color: var(--danger-color);
+            color: white;
+        }
+
+        .status {
+            text-align: right;
+            font-size: 12px;
+            color: #888;
+            margin-top: 5px;
+            height: 15px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🔗 공유 웹 메모장</h1>
+    <div class="info-box">
+        💡 <b>사용 방법:</b> 메모를 입력하면 주소창(URL)이 자동으로 업데이트됩니다. 다른 사람에게 이 메모를 공유하고 싶다면 <b>[공유 링크 복사]</b> 버튼을 눌러 주소를 보내주세요!
+    </div>
+    <textarea id="memoArea" placeholder="여기에 메모를 입력하세요... 타인과 공유할 수 있습니다."></textarea>
+    <div id="status" class="status"></div>
+    <div class="button-group">
+        <button class="btn-clear" onclick="clearMemo()">전체 삭제</button>
+        <button class="btn-share" onclick="copyShareLink()">🔗 공유 링크 복사</button>
+    </div>
+</div>
+
+<script>
+    const memoArea = document.getElementById('memoArea');
+    const status = document.getElementById('status');
+
+    // 페이지 로드 시 URL 파라미터에서 메모 읽어오기 (없으면 로컬스토리지에서 읽음)
+    window.onload = function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const sharedMemo = urlParams.get('text');
+
+        if (sharedMemo) {
+            // URL에 데이터가 있으면 복호화해서 로드
+            try {
+                memoArea.value = decodeURIComponent(atob(sharedMemo));
+                showStatus('공유된 메모를 불러왔습니다.');
+            } catch (e) {
+                // 인코딩 오류 시 일반 텍스트로 시도
+                memoArea.value = decodeURIComponent(sharedMemo);
+            }
+        } else {
+            // URL에 없으면 기존 브라우저 저장소 데이터 로드
+            const savedMemo = localStorage.getItem('sharedWebMemo');
+            if (savedMemo) {
+                memoArea.value = savedMemo;
+            }
+        }
+    };
+
+    // 입력할 때마다 로컬 스토리지 저장 및 URL 실시간 주입
+    memoArea.addEventListener('input', function() {
+        const text = memoArea.value;
+        localStorage.setItem('sharedWebMemo', text);
+
+        // URL 업데이트 (텍스트를 안전하게 Base64로 압축/인코딩)
+        if (text.trim() === '') {
+            window.history.replaceState({}, '', window.location.pathname);
+        } else {
+            const base64Text = btoa(encodeURIComponent(text));
+            window.history.replaceState({}, '', `?text=${base64Text}`);
+        }
+        showStatus('실시간 저장 중...');
+    });
+
+    // 상태 메시지 표시
+    function showStatus(message) {
+        status.innerText = message;
+        setTimeout(() => {
+            if(status.innerText === message) status.innerText = '';
+        }, 2000);
+    }
+
+    // 메모 삭제
+    function clearMemo() {
+        if (confirm('정말 모든 내용을 삭제하시겠습니까?')) {
+            memoArea.value = '';
+            localStorage.removeItem('sharedWebMemo');
+            window.history.replaceState({}, '', window.location.pathname);
+            showStatus('삭제 완료');
+        }
+    }
+
+    // 공유 링크 복사 기능
+    function copyShareLink() {
+        const currentUrl = window.location.href;
+        
+        navigator.clipboard.writeText(currentUrl).then(() => {
+            alert('공유 링크가 클립보드에 복사되었습니다!\n카카오톡이나 메일로 타인에게 공유해 보세요.');
+        }).catch(err => {
+            // 구형 브라우저 대응 임시 복사
+            const tempInput = document.createElement('input');
+            tempInput.value = currentUrl;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempInput);
+            alert('공유 링크가 복사되었습니다!');
+        });
+    }
+</script>
+
+</body>
+</html>
